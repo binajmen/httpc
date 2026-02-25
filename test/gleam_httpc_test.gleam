@@ -83,19 +83,19 @@ pub fn invalid_tls_test() {
     ip6: _,
   )) =
     httpc.configure()
-    |> httpc.verify_tls(True)
+    |> httpc.verify_tls(httpc.VerifyWithSystemCerts)
     |> httpc.dispatch(req)
 
   let assert Ok(response) =
     httpc.configure()
-    |> httpc.verify_tls(False)
+    |> httpc.verify_tls(httpc.NoVerification)
     |> httpc.dispatch(req)
   assert 200 == response.status
 }
 
 pub fn ipv6_test() {
   // This URL is ipv6 only
-  let assert Ok(req) = request.to("https://ipv6.google.com")
+  let assert Ok(req) = request.to("https://ipv6test.google.com")
   let assert Ok(resp) = httpc.send(req)
   assert 200 == resp.status
 }

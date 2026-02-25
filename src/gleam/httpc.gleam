@@ -5,6 +5,7 @@ import gleam/http.{type Method}
 import gleam/http/request.{type Request}
 import gleam/http/response.{type Response, Response}
 import gleam/list
+import gleam/option
 import gleam/result
 import gleam/uri
 
@@ -22,11 +23,24 @@ pub type ConnectError {
   TlsAlert(code: String, detail: String)
 }
 
+pub type TlsVerification {
+  /// Do not verify the server's TLS certificate.
+  NoVerification
+  /// Verify the server's TLS certificate using the system's default CA certificates.
+  VerifyWithSystemCerts
+  /// Verify the server's TLS certificate using a custom CA certificate file.
+  /// The path should point to a PEM-encoded CA certificate file.
+  VerifyWithCustomCa(path: String)
+}
+
 @external(erlang, "gleam_httpc_ffi", "default_user_agent")
 fn default_user_agent() -> #(Charlist, Charlist)
 
 @external(erlang, "gleam_httpc_ffi", "normalise_error")
 fn normalise_error(error: Dynamic) -> HttpError
+
+@external(erlang, "gleam_httpc_ffi", "ssl_verify_host_options")
+fn ssl_verify_host_options(wildcard: Bool) -> List(ErlSslOption)
 
 type ErlHttpOption {
   Ssl(List(ErlSslOption))
@@ -53,10 +67,17 @@ type Inet6fb4 {
 
 type ErlSslOption {
   Verify(ErlVerifyOption)
+  Certfile(Charlist)
+  Keyfile(Charlist)
+  Password(Charlist)
+  Cacerts(List(BitArray))
+  Cacertfile(Charlist)
+  CustomizeHostnameCheck(List(Dynamic))
 }
 
 type ErlVerifyOption {
   VerifyNone
+  VerifyPeer
 }
 
 @external(erlang, "httpc", "request")
@@ -115,9 +136,9 @@ pub fn dispatch_bits(
     Autoredirect(config.follow_redirects),
     Timeout(config.timeout),
   ]
-  let erl_http_options = case config.verify_tls {
-    True -> erl_http_options
-    False -> [Ssl([Verify(VerifyNone)]), ..erl_http_options]
+  let erl_http_options = case ssl_options(config) {
+    option.Some(ssl) -> [Ssl(ssl), ..erl_http_options]
+    option.None -> erl_http_options
   }
   let erl_options = [BodyFormat(Binary), SocketOpts([Ipfamily(Inet6fb4)])]
 
@@ -144,28 +165,75 @@ pub fn dispatch_bits(
   Ok(Response(status, list.map(headers, string_header), resp_body))
 }
 
+fn verification_options(tls: TlsVerification) -> List(ErlSslOption) {
+  case tls {
+    VerifyWithSystemCerts -> ssl_verify_host_options(True)
+    VerifyWithCustomCa(path) ->
+      ssl_verify_host_options(True)
+      |> list.map(fn(opt) {
+        case opt {
+          Cacerts(_) -> Cacertfile(charlist.from_string(path))
+          _ -> opt
+        }
+      })
+    NoVerification -> [Verify(VerifyNone)]
+  }
+}
+
+fn certificate_options(
+  cert: option.Option(ClientCertificate),
+) -> List(ErlSslOption) {
+  case cert {
+    option.Some(ClientCertificate(certfile:, keyfile:, password:)) -> {
+      let base = [
+        Certfile(charlist.from_string(certfile)),
+        Keyfile(charlist.from_string(keyfile)),
+      ]
+      case password {
+        option.Some(pw) -> [Password(charlist.from_string(pw)), ..base]
+        option.None -> base
+      }
+    }
+    option.None -> []
+  }
+}
+
+fn ssl_options(config: Configuration) -> option.Option(List(ErlSslOption)) {
+  let cert_opts = certificate_options(config.client_certificate)
+  let verify_opts = verification_options(config.tls_verification)
+
+  case config.tls_verification, cert_opts {
+    VerifyWithSystemCerts, [] -> option.None
+    _, _ -> option.Some(list.append(verify_opts, cert_opts))
+  }
+}
+
 /// Configuration that can be used to send HTTP requests.
 ///
 /// To be used with `dispatch` and `dispatch_bits`.
 ///
 pub opaque type Configuration {
   Builder(
-    /// Whether to verify the TLS certificate of the server.
+    /// How TLS verification should be performed.
     ///
-    /// This defaults to `True`, meaning that the TLS certificate will be verified
-    /// unless you call this function with `False`.
-    ///
-    /// Setting this to `False` can make your application vulnerable to
-    /// man-in-the-middle attacks and other security risks. Do not do this unless
-    /// you are sure and you understand the risks.
-    ///
-    verify_tls: Bool,
+    tls_verification: TlsVerification,
     /// Whether to follow redirects.
     ///
     follow_redirects: Bool,
     /// Timeout for the request in milliseconds.
     ///
     timeout: Int,
+    /// Client certificate and private key for TLS authentication.
+    ///
+    client_certificate: option.Option(ClientCertificate),
+  )
+}
+
+type ClientCertificate {
+  ClientCertificate(
+    certfile: String,
+    keyfile: String,
+    password: option.Option(String),
   )
 }
 
@@ -177,22 +245,31 @@ pub opaque type Configuration {
 /// - Redirects are not followed.
 /// - The timeout for the response to be received is 30 seconds from when the
 ///   request is sent.
+/// - No client certificates are sent
 ///
 pub fn configure() -> Configuration {
-  Builder(verify_tls: True, follow_redirects: False, timeout: 30_000)
+  Builder(
+    tls_verification: VerifyWithSystemCerts,
+    follow_redirects: False,
+    timeout: 30_000,
+    client_certificate: option.None,
+  )
 }
 
 /// Set whether to verify the TLS certificate of the server.
 ///
-/// This defaults to `True`, meaning that the TLS certificate will be verified
-/// unless you call this function with `False`.
+/// This defaults to `VerifyWithSystemCerts`, meaning that the TLS certificate
+/// will be verified using the system's default CA certificates unless you call this function with a different option.
 ///
-/// Setting this to `False` can make your application vulnerable to
+/// Setting this to `NoVerification` can make your application vulnerable to
 /// man-in-the-middle attacks and other security risks. Do not do this unless
 /// you are sure and you understand the risks.
 ///
-pub fn verify_tls(config: Configuration, which: Bool) -> Configuration {
-  Builder(..config, verify_tls: which)
+pub fn verify_tls(
+  config: Configuration,
+  tls_verification: TlsVerification,
+) -> Configuration {
+  Builder(..config, tls_verification:)
 }
 
 /// Set whether redirects should be followed automatically.
@@ -207,6 +284,42 @@ pub fn follow_redirects(config: Configuration, which: Bool) -> Configuration {
 ///
 pub fn timeout(config: Configuration, timeout: Int) -> Configuration {
   Builder(..config, timeout:)
+}
+
+/// Set a client certificate and private key for mutual TLS.
+///
+pub fn client_certificate(
+  config: Configuration,
+  certfile certfile: String,
+  keyfile keyfile: String,
+) -> Configuration {
+  Builder(
+    ..config,
+    client_certificate: option.Some(ClientCertificate(
+      certfile:,
+      keyfile:,
+      password: option.None,
+    )),
+  )
+}
+
+/// Set a client certificate and private key for mutual TLS,
+/// with a password for an encrypted private key.
+///
+pub fn client_certificate_with_password(
+  config: Configuration,
+  certfile certfile: String,
+  keyfile keyfile: String,
+  password password: String,
+) -> Configuration {
+  Builder(
+    ..config,
+    client_certificate: option.Some(ClientCertificate(
+      certfile:,
+      keyfile:,
+      password: option.Some(password),
+    )),
+  )
 }
 
 /// Send a HTTP request of unicode data.
