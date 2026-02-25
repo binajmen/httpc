@@ -3,6 +3,10 @@
 ## Unreleased
 
 - Fixed a bug where requests to IPv6 literal hosts would fail.
+- Added client certificate configuration for mutual TLS (mTLS).
+- Added TLS verification options for system certs and custom CA bundles.
+- Breaking: `verify_tls` now accepts `TlsVerification` instead of `Bool`.
+- Note: TLS verification options require Erlang/OTP >= 25.1 (`httpc:ssl_verify_host_options/1`).
 
 ## v5.0.0 - 2025-07-12
 
