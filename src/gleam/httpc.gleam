@@ -168,14 +168,17 @@ pub fn dispatch_bits(
 fn verification_options(tls: TlsVerification) -> List(ErlSslOption) {
   case tls {
     VerifyWithSystemCerts -> ssl_verify_host_options(True)
-    VerifyWithCustomCa(path) ->
-      ssl_verify_host_options(True)
-      |> list.map(fn(opt) {
-        case opt {
-          Cacerts(_) -> Cacertfile(charlist.from_string(path))
-          _ -> opt
-        }
-      })
+    VerifyWithCustomCa(path) -> {
+      let options =
+        ssl_verify_host_options(True)
+        |> list.filter(fn(opt) {
+          case opt {
+            Cacerts(_) -> False
+            _ -> True
+          }
+        })
+      [Cacertfile(charlist.from_string(path)), ..options]
+    }
     NoVerification -> [Verify(VerifyNone)]
   }
 }
@@ -200,11 +203,13 @@ fn certificate_options(
 
 fn ssl_options(config: Configuration) -> option.Option(List(ErlSslOption)) {
   let cert_opts = certificate_options(config.client_certificate)
-  let verify_opts = verification_options(config.tls_verification)
 
   case config.tls_verification, cert_opts {
     VerifyWithSystemCerts, [] -> option.None
-    _, _ -> option.Some(list.append(verify_opts, cert_opts))
+    _, _ -> {
+      let verify_opts = verification_options(config.tls_verification)
+      option.Some(list.append(verify_opts, cert_opts))
+    }
   }
 }
 
