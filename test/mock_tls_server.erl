@@ -35,16 +35,20 @@ client_key_encrypted_file() -> file(client_key_encrypted_file).
 
 file(Key) -> maps:get(Key, persistent_term:get({?MODULE, files})).
 
-%% Runs Fun with the OS CA store unavailable, then restores it. Safe because
-%% eunit runs the suite sequentially.
+%% Runs Fun with the OS CA store unavailable, then restores it. Returns
+%% {error, nil} before OTP 27.2, where the cacerts_path override is ignored
+%% and the store cannot be disabled. Safe because eunit runs the suite
+%% sequentially.
 without_system_cacerts(Fun) ->
     _ = application:load(public_key),
     Previous = application:get_env(public_key, cacerts_path),
-    public_key:cacerts_clear(),
-    application:set_env(public_key, cacerts_path, "/nonexistent/ca-bundle.pem"),
-    {'EXIT', _} = (catch public_key:cacerts_get()),
     try
-        Fun()
+        public_key:cacerts_clear(),
+        application:set_env(public_key, cacerts_path, "/nonexistent/ca-bundle.pem"),
+        case catch public_key:cacerts_get() of
+            {'EXIT', _} -> {ok, Fun()};
+            _ -> {error, nil}
+        end
     after
         case Previous of
             {ok, Path} -> application:set_env(public_key, cacerts_path, Path);

@@ -190,13 +190,20 @@ pub fn tls_custom_ca_test() {
 pub fn tls_custom_ca_without_system_certs_test() {
   let assert Ok(req) = request.to(mock_server.https_url("/"))
 
-  let assert Ok(resp) =
+  // Skipped before OTP 27.2, where the system CA store cannot be disabled.
+  case
     mock_server.without_system_cacerts(fn() {
       httpc.configure()
       |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
       |> httpc.dispatch(req)
     })
-  assert resp.status == 200
+  {
+    Ok(result) -> {
+      let assert Ok(resp) = result
+      assert resp.status == 200
+    }
+    Error(Nil) -> Nil
+  }
 }
 
 pub fn tls_custom_ca_hostname_mismatch_test() {

@@ -158,9 +158,11 @@ pub fn client_key_file() -> String
 @external(erlang, "mock_tls_server", "client_key_encrypted_file")
 pub fn client_key_encrypted_file() -> String
 
-/// Runs the given function with the system CA store unavailable.
+/// Runs the given function with the system CA store unavailable. Returns
+/// `Error(Nil)` without running it on OTP versions before 27.2, where the
+/// store cannot be disabled.
 @external(erlang, "mock_tls_server", "without_system_cacerts")
-pub fn without_system_cacerts(run: fn() -> a) -> a
+pub fn without_system_cacerts(run: fn() -> a) -> Result(a, Nil)
 
 /// Server that only presents its own certificate.
 pub fn https_url(path: String) -> String {
