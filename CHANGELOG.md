@@ -11,7 +11,7 @@
 - Added the `ConnectionClosed` error, returned when the server closes the
   connection before responding, for example when rejecting a client
   certificate over TLS 1.3.
-- Note: TLS verification options require Erlang/OTP >= 25.1 (`httpc:ssl_verify_host_options/1`).
+- Erlang/OTP 25.1 or later is now required (`httpc:ssl_verify_host_options/1`).
 
 ## v5.0.0 - 2025-07-12
 

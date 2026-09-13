@@ -37,9 +37,24 @@ pub fn send_request() {
 }
 ```
 
-## Use with Erlang/OTP versions older than 26.0
+## TLS options
 
-Older versions of HTTPC do not verify TLS connections by default, so with them
-your connection may not be secure when using this library. Consider upgrading to
-a newer version of Erlang/OTP, or using a different HTTP client such as
-[hackney](https://github.com/gleam-lang/hackney).
+Server certificates are verified against the system's CA certificates by
+default. A `Configuration` can verify against a custom CA instead, or present a
+client certificate for mutual TLS:
+
+```gleam
+import gleam/httpc
+
+pub fn send_request(req) {
+  httpc.configure()
+  |> httpc.verify_tls(httpc.VerifyWithCustomCa("/path/to/ca.pem"))
+  |> httpc.client_certificate(
+    certfile: "/path/to/client.pem",
+    keyfile: "/path/to/client.key",
+  )
+  |> httpc.dispatch(req)
+}
+```
+
+This library requires Erlang/OTP 25.1 or later.

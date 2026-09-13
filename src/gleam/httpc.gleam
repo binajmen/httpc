@@ -37,8 +37,9 @@ pub type TlsVerification {
   NoVerification
   /// Verify the server's TLS certificate using the system's default CA certificates.
   VerifyWithSystemCerts
-  /// Verify the server's TLS certificate using a custom CA certificate file.
-  /// The path should point to a PEM-encoded CA certificate file.
+  /// Verify the server's TLS certificate using only the CA certificates in
+  /// the given PEM-encoded file. The system's default CA certificates are not
+  /// used.
   VerifyWithCustomCa(path: String)
 }
 
