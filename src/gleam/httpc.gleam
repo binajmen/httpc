@@ -22,6 +22,9 @@ pub type HttpError {
 pub type ConnectError {
   Posix(code: String)
   TlsAlert(code: String, detail: String)
+  /// The TLS options were rejected, for example a `certfile`, `keyfile`, or
+  /// `cacertfile` path that does not exist, or an incorrect key password.
+  InvalidTlsOptions(detail: String)
 }
 
 pub type TlsVerification {

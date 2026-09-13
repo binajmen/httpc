@@ -11,25 +11,29 @@ normalise_error(Error = {failed_connect, Opts}) ->
         _ -> erlang:error({unexpected_httpc_error, Error})
     end,
     {failed_to_connect, normalise_ip_error(Ipv4), normalise_ip_error(Ipv6)};
+%% With TLS 1.3 a server rejects a missing or invalid client certificate after
+%% the handshake has completed, so httpc reports it as a socket error rather
+%% than a connect failure. Normalise it to the same error TLS 1.2 produces.
 normalise_error({ssl_error, _Socket, Reason}) ->
-    {failed_to_connect, normalise_ip_error({ssl_error, Reason}), normalise_ip_error({ssl_error, Reason})};
-normalise_error({ssl_error, Reason}) ->
-    {failed_to_connect, normalise_ip_error({ssl_error, Reason}), normalise_ip_error({ssl_error, Reason})};
-normalise_error(timeout) -> 
+    {failed_to_connect, normalise_ip_error(Reason), normalise_ip_error(Reason)};
+normalise_error(timeout) ->
     response_timeout;
 normalise_error(Error) ->
     erlang:error({unexpected_httpc_error, Error}).
 
-normalise_ip_error({ssl_error, Reason}) ->
-    normalise_ip_error(Reason);
-normalise_ip_error({tls_alert, {A, B}}) ->
-    {tls_alert, erlang:atom_to_binary(A), unicode:characters_to_binary(B)};
-normalise_ip_error({tls_alert, A}) when is_atom(A) ->
-    {tls_alert, erlang:atom_to_binary(A), <<>>};
 normalise_ip_error(Code) when is_atom(Code) ->
     {posix, erlang:atom_to_binary(Code)};
+normalise_ip_error({tls_alert, {A, B}}) ->
+    {tls_alert, erlang:atom_to_binary(A), unicode:characters_to_binary(B)};
+normalise_ip_error({options, _} = Reason) ->
+    {invalid_tls_options, format_reason(Reason)};
+normalise_ip_error({options, incompatible, _} = Reason) ->
+    {invalid_tls_options, format_reason(Reason)};
 normalise_ip_error(Error) ->
     erlang:error({unexpected_httpc_ip_error, Error}).
+
+format_reason(Reason) ->
+    unicode:characters_to_binary(io_lib:format("~p", [Reason])).
 
 default_user_agent() ->
     Version =
