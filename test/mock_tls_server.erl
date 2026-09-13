@@ -1,14 +1,15 @@
 -module(mock_tls_server).
--export([start/0, https_port/0, mtls_port/0, ca_file/0, client_cert_file/0,
-         client_key_file/0, client_key_encrypted_file/0]).
+-export([start/0, https_port/0, mtls_port/0, mtls_tls12_port/0, ca_file/0,
+         client_cert_file/0, client_key_file/0, client_key_encrypted_file/0]).
 
 -include_lib("public_key/include/public_key.hrl").
 
 -define(PASSWORD, "secret").
 
-%% Starts two HTTPS listeners backed by a throwaway PKI generated at runtime:
-%% one that only presents a server certificate, and one that additionally
-%% requires a client certificate. Both reply 200 to any request.
+%% Starts HTTPS listeners backed by a throwaway PKI generated at runtime: one
+%% that only presents a server certificate, and two that additionally require
+%% a client certificate, one of them limited to TLS 1.2 so that rejection
+%% happens during the handshake. All reply 200 to any request.
 start() ->
     Files = generate_certs(),
     ServerOpts = [{certfile, maps:get(server_cert_file, Files)},
@@ -19,10 +20,13 @@ start() ->
     persistent_term:put({?MODULE, files}, Files),
     persistent_term:put({?MODULE, https_port}, listen(ServerOpts)),
     persistent_term:put({?MODULE, mtls_port}, listen(MtlsOpts)),
+    persistent_term:put({?MODULE, mtls_tls12_port},
+                        listen([{versions, ['tlsv1.2']} | MtlsOpts])),
     nil.
 
 https_port() -> persistent_term:get({?MODULE, https_port}).
 mtls_port() -> persistent_term:get({?MODULE, mtls_port}).
+mtls_tls12_port() -> persistent_term:get({?MODULE, mtls_tls12_port}).
 ca_file() -> file(ca_file).
 client_cert_file() -> file(client_cert_file).
 client_key_file() -> file(client_key_file).

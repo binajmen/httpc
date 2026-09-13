@@ -187,6 +187,19 @@ pub fn tls_custom_ca_test() {
   assert resp.status == 200
 }
 
+pub fn tls_custom_ca_hostname_mismatch_test() {
+  let assert Ok(req) = request.to(mock_server.https_ip_url("/"))
+
+  let assert Error(httpc.FailedToConnect(
+    ip4: httpc.TlsAlert("handshake_failure", detail),
+    ip6: _,
+  )) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
+    |> httpc.dispatch(req)
+  assert string.contains(detail, "hostname_check_failed")
+}
+
 pub fn tls_no_verification_test() {
   let assert Ok(req) = request.to(mock_server.https_url("/"))
 
@@ -224,6 +237,20 @@ pub fn mtls_without_client_certificate_test() {
     httpc.ConnectionClosed -> True
     _ -> False
   }
+}
+
+pub fn mtls_tls12_without_client_certificate_test() {
+  let assert Ok(req) = request.to(mock_server.mtls_tls12_url("/"))
+
+  // With TLS 1.2 the rejection happens during the handshake, so it is
+  // always reported as a failed connection.
+  let assert Error(httpc.FailedToConnect(
+    ip4: httpc.TlsAlert("handshake_failure", _),
+    ip6: _,
+  )) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
+    |> httpc.dispatch(req)
 }
 
 pub fn mtls_with_client_certificate_test() {

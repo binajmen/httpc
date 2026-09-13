@@ -141,6 +141,9 @@ fn https_port() -> Int
 @external(erlang, "mock_tls_server", "mtls_port")
 fn mtls_port() -> Int
 
+@external(erlang, "mock_tls_server", "mtls_tls12_port")
+fn mtls_tls12_port() -> Int
+
 /// PEM file with the CA that signed the TLS servers' certificate.
 @external(erlang, "mock_tls_server", "ca_file")
 pub fn ca_file() -> String
@@ -160,7 +163,17 @@ pub fn https_url(path: String) -> String {
   "https://localhost:" <> int.to_string(https_port()) <> path
 }
 
+/// The HTTPS server reached by IP, which its certificate does not cover.
+pub fn https_ip_url(path: String) -> String {
+  "https://127.0.0.1:" <> int.to_string(https_port()) <> path
+}
+
 /// Server that additionally requires a client certificate.
 pub fn mtls_url(path: String) -> String {
   "https://localhost:" <> int.to_string(mtls_port()) <> path
+}
+
+/// Like `mtls_url`, but the server only speaks TLS 1.2.
+pub fn mtls_tls12_url(path: String) -> String {
+  "https://localhost:" <> int.to_string(mtls_tls12_port()) <> path
 }
