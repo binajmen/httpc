@@ -42,9 +42,10 @@ generate_certs() ->
                               peer => [Key, Digest, {extensions, [San]}]},
             client_chain => #{root => [Key, Digest], intermediates => [],
                               peer => [Key, Digest]}}),
-    Dir = filename:join(os:getenv("TMPDIR", "/tmp"),
-                        "gleam_httpc_test_" ++
-                            integer_to_list(erlang:unique_integer([positive]))),
+    %% Random rather than unique_integer, which repeats across VMs. The files
+    %% are left behind: they must outlive the suite and gleeunit has no teardown.
+    Suffix = binary_to_list(binary:encode_hex(crypto:strong_rand_bytes(8))),
+    Dir = filename:join(os:getenv("TMPDIR", "/tmp"), "gleam_httpc_test_" ++ Suffix),
     ok = file:make_dir(Dir),
     %% Each side's cacerts are the CAs it must trust to verify the other side.
     {cacerts, ServerCas} = lists:keyfind(cacerts, 1, Client),
