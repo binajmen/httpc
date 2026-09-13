@@ -6,10 +6,10 @@
 - Added client certificate configuration for mutual TLS (mTLS).
 - Added TLS verification options for system certs and custom CA bundles.
 - Breaking: `verify_tls` now accepts `TlsVerification` instead of `Bool`.
-- Added the `InvalidTlsOptions` connect error, returned when TLS options such
-  as certificate file paths are rejected.
-- Added the `ConnectionClosed` error, returned when the server closes the
-  connection before responding, for example when rejecting a client
+- Breaking: added the `InvalidTlsOptions` connect error, returned when TLS
+  options such as certificate file paths are rejected.
+- Breaking: added the `ConnectionClosed` error, returned when the server closes
+  the connection before responding, for example when rejecting a client
   certificate over TLS 1.3.
 - Erlang/OTP 25.1 or later is now required (`httpc:ssl_verify_host_options/1`).
 
