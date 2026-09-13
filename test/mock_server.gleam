@@ -158,6 +158,10 @@ pub fn client_key_file() -> String
 @external(erlang, "mock_tls_server", "client_key_encrypted_file")
 pub fn client_key_encrypted_file() -> String
 
+/// Runs the given function with the system CA store unavailable.
+@external(erlang, "mock_tls_server", "without_system_cacerts")
+pub fn without_system_cacerts(run: fn() -> a) -> a
+
 /// Server that only presents its own certificate.
 pub fn https_url(path: String) -> String {
   "https://localhost:" <> int.to_string(https_port()) <> path

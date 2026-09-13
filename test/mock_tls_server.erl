@@ -1,6 +1,7 @@
 -module(mock_tls_server).
 -export([start/0, https_port/0, mtls_port/0, mtls_tls12_port/0, ca_file/0,
-         client_cert_file/0, client_key_file/0, client_key_encrypted_file/0]).
+         client_cert_file/0, client_key_file/0, client_key_encrypted_file/0,
+         without_system_cacerts/1]).
 
 -include_lib("public_key/include/public_key.hrl").
 
@@ -33,6 +34,24 @@ client_key_file() -> file(client_key_file).
 client_key_encrypted_file() -> file(client_key_encrypted_file).
 
 file(Key) -> maps:get(Key, persistent_term:get({?MODULE, files})).
+
+%% Runs Fun with the OS CA store unavailable, then restores it. Safe because
+%% eunit runs the suite sequentially.
+without_system_cacerts(Fun) ->
+    _ = application:load(public_key),
+    Previous = application:get_env(public_key, cacerts_path),
+    public_key:cacerts_clear(),
+    application:set_env(public_key, cacerts_path, "/nonexistent/ca-bundle.pem"),
+    {'EXIT', _} = (catch public_key:cacerts_get()),
+    try
+        Fun()
+    after
+        case Previous of
+            {ok, Path} -> application:set_env(public_key, cacerts_path, Path);
+            undefined -> application:unset_env(public_key, cacerts_path)
+        end,
+        public_key:cacerts_clear()
+    end.
 
 generate_certs() ->
     San = #'Extension'{extnID = ?'id-ce-subjectAltName', critical = false,
