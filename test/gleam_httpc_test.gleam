@@ -167,3 +167,139 @@ pub fn timeout_error_test() {
     |> httpc.dispatch(req)
     == Error(httpc.ResponseTimeout)
 }
+
+pub fn tls_system_certs_reject_local_ca_test() {
+  let assert Ok(req) = request.to(mock_server.https_url("/"))
+
+  let assert Error(httpc.FailedToConnect(
+    ip4: httpc.TlsAlert("unknown_ca", _),
+    ip6: _,
+  )) = httpc.send(req)
+}
+
+pub fn tls_custom_ca_test() {
+  let assert Ok(req) = request.to(mock_server.https_url("/"))
+
+  let assert Ok(resp) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
+    |> httpc.dispatch(req)
+  assert resp.status == 200
+}
+
+pub fn tls_no_verification_test() {
+  let assert Ok(req) = request.to(mock_server.https_url("/"))
+
+  let assert Ok(resp) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.NoVerification)
+    |> httpc.dispatch(req)
+  assert resp.status == 200
+}
+
+pub fn tls_missing_ca_file_test() {
+  let assert Ok(req) = request.to(mock_server.https_url("/"))
+
+  let assert Error(httpc.FailedToConnect(
+    ip4: httpc.InvalidTlsOptions(_),
+    ip6: _,
+  )) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa("/nonexistent/ca.pem"))
+    |> httpc.dispatch(req)
+}
+
+pub fn mtls_without_client_certificate_test() {
+  let assert Ok(req) = request.to(mock_server.mtls_url("/"))
+
+  let assert Error(error) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
+    |> httpc.dispatch(req)
+
+  // With TLS 1.3 the server rejects the missing certificate after the
+  // handshake, and the alert races with the connection being closed.
+  assert case error {
+    httpc.FailedToConnect(ip4: httpc.TlsAlert(_, _), ip6: _) -> True
+    httpc.ConnectionClosed -> True
+    _ -> False
+  }
+}
+
+pub fn mtls_with_client_certificate_test() {
+  let assert Ok(req) = request.to(mock_server.mtls_url("/"))
+
+  let assert Ok(resp) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
+    |> httpc.client_certificate(
+      certfile: mock_server.client_cert_file(),
+      keyfile: mock_server.client_key_file(),
+    )
+    |> httpc.dispatch(req)
+  assert resp.status == 200
+}
+
+pub fn mtls_with_encrypted_client_key_test() {
+  let assert Ok(req) = request.to(mock_server.mtls_url("/"))
+
+  let assert Ok(resp) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
+    |> httpc.client_certificate_with_password(
+      certfile: mock_server.client_cert_file(),
+      keyfile: mock_server.client_key_encrypted_file(),
+      password: "secret",
+    )
+    |> httpc.dispatch(req)
+  assert resp.status == 200
+}
+
+pub fn mtls_with_wrong_key_password_test() {
+  let assert Ok(req) = request.to(mock_server.mtls_url("/"))
+
+  let assert Error(httpc.FailedToConnect(
+    ip4: httpc.InvalidTlsOptions(_),
+    ip6: _,
+  )) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
+    |> httpc.client_certificate_with_password(
+      certfile: mock_server.client_cert_file(),
+      keyfile: mock_server.client_key_encrypted_file(),
+      password: "wrong",
+    )
+    |> httpc.dispatch(req)
+}
+
+pub fn mtls_encrypted_key_without_password_test() {
+  let assert Ok(req) = request.to(mock_server.mtls_url("/"))
+
+  let assert Error(httpc.FailedToConnect(
+    ip4: httpc.InvalidTlsOptions(_),
+    ip6: _,
+  )) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
+    |> httpc.client_certificate(
+      certfile: mock_server.client_cert_file(),
+      keyfile: mock_server.client_key_encrypted_file(),
+    )
+    |> httpc.dispatch(req)
+}
+
+pub fn mtls_missing_client_certificate_files_test() {
+  let assert Ok(req) = request.to(mock_server.mtls_url("/"))
+
+  let assert Error(httpc.FailedToConnect(
+    ip4: httpc.InvalidTlsOptions(_),
+    ip6: _,
+  )) =
+    httpc.configure()
+    |> httpc.verify_tls(httpc.VerifyWithCustomCa(mock_server.ca_file()))
+    |> httpc.client_certificate(
+      certfile: "/nonexistent/client.pem",
+      keyfile: "/nonexistent/client.key",
+    )
+    |> httpc.dispatch(req)
+}

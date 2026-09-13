@@ -115,6 +115,7 @@ fn start_http() -> Nil {
 
 pub fn start() -> Nil {
   start_http()
+  start_tls()
 }
 
 pub fn http_port() -> Int {
@@ -127,4 +128,39 @@ pub fn url(path: String) -> String {
 
 pub fn ipv6_url(path: String) -> String {
   "http://[::1]:" <> int.to_string(http_port()) <> path
+}
+
+// TLS listeners and a throwaway PKI, see mock_tls_server.erl
+
+@external(erlang, "mock_tls_server", "start")
+fn start_tls() -> Nil
+
+@external(erlang, "mock_tls_server", "https_port")
+fn https_port() -> Int
+
+@external(erlang, "mock_tls_server", "mtls_port")
+fn mtls_port() -> Int
+
+/// PEM file with the CA that signed the TLS servers' certificate.
+@external(erlang, "mock_tls_server", "ca_file")
+pub fn ca_file() -> String
+
+@external(erlang, "mock_tls_server", "client_cert_file")
+pub fn client_cert_file() -> String
+
+@external(erlang, "mock_tls_server", "client_key_file")
+pub fn client_key_file() -> String
+
+/// The client key encrypted with the password "secret".
+@external(erlang, "mock_tls_server", "client_key_encrypted_file")
+pub fn client_key_encrypted_file() -> String
+
+/// Server that only presents its own certificate.
+pub fn https_url(path: String) -> String {
+  "https://localhost:" <> int.to_string(https_port()) <> path
+}
+
+/// Server that additionally requires a client certificate.
+pub fn mtls_url(path: String) -> String {
+  "https://localhost:" <> int.to_string(mtls_port()) <> path
 }
