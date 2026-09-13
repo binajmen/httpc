@@ -48,7 +48,7 @@ fn default_user_agent() -> #(Charlist, Charlist)
 @external(erlang, "gleam_httpc_ffi", "normalise_error")
 fn normalise_error(error: Dynamic) -> HttpError
 
-@external(erlang, "gleam_httpc_ffi", "ssl_verify_host_options")
+@external(erlang, "httpc", "ssl_verify_host_options")
 fn ssl_verify_host_options(wildcard: Bool) -> List(ErlSslOption)
 
 type ErlHttpOption {
@@ -80,14 +80,12 @@ type ErlSslOption {
   Certfile(Charlist)
   Keyfile(Charlist)
   Password(Charlist)
-  Cacerts(List(BitArray))
+  Cacerts(List(Dynamic))
   Cacertfile(Charlist)
-  CustomizeHostnameCheck(List(Dynamic))
 }
 
 type ErlVerifyOption {
   VerifyNone
-  VerifyPeer
 }
 
 @external(erlang, "httpc", "request")

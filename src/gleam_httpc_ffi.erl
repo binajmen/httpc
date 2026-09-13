@@ -1,5 +1,5 @@
 -module(gleam_httpc_ffi).
--export([default_user_agent/0, normalise_error/1, ssl_verify_host_options/1]).
+-export([default_user_agent/0, normalise_error/1]).
 
 normalise_error(Error = {failed_connect, Opts}) ->
     Ipv6 = case lists:keyfind(inet6, 1, Opts) of
@@ -44,6 +44,3 @@ default_user_agent() ->
             undefined -> "0.0.0"
         end,
     {"user-agent", "gleam_httpc/" ++ Version}.
-
-ssl_verify_host_options(WildcardHostName) ->
-    httpc:ssl_verify_host_options(WildcardHostName).
