@@ -31,6 +31,10 @@ normalise_ip_error({options, _} = Reason) ->
     {invalid_tls_options, format_reason(Reason)};
 normalise_ip_error({options, incompatible, _} = Reason) ->
     {invalid_tls_options, format_reason(Reason)};
+%% ssl re-throws some file errors without the {options, _} wrapper, for
+%% example an encrypted key file used without a password.
+normalise_ip_error({Opt, _} = Reason) when Opt =:= keyfile; Opt =:= certfile; Opt =:= cacertfile ->
+    {invalid_tls_options, format_reason(Reason)};
 normalise_ip_error(Error) ->
     erlang:error({unexpected_httpc_ip_error, Error}).
 
