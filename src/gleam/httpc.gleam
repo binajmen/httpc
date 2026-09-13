@@ -161,10 +161,7 @@ pub fn dispatch_bits(
     Autoredirect(config.follow_redirects),
     Timeout(config.timeout),
   ]
-  let erl_http_options = case ssl_options(config) {
-    option.Some(ssl) -> [Ssl(ssl), ..erl_http_options]
-    option.None -> erl_http_options
-  }
+  let erl_http_options = [Ssl(ssl_options(config)), ..erl_http_options]
   let erl_options = [
     BodyFormat(Binary),
     SocketOpts([Ipfamily(Inet6fb4)]),
@@ -230,16 +227,11 @@ fn certificate_options(
   }
 }
 
-fn ssl_options(config: Configuration) -> option.Option(List(ErlSslOption)) {
-  let cert_opts = certificate_options(config.client_certificate)
-
-  case config.tls_verification, cert_opts {
-    VerifyWithSystemCerts, [] -> option.None
-    _, _ -> {
-      let verify_opts = verification_options(config.tls_verification)
-      option.Some(list.append(verify_opts, cert_opts))
-    }
-  }
+fn ssl_options(config: Configuration) -> List(ErlSslOption) {
+  list.append(
+    verification_options(config.tls_verification),
+    certificate_options(config.client_certificate),
+  )
 }
 
 /// Configuration that can be used to send HTTP requests.
