@@ -18,6 +18,8 @@ normalise_error({ssl_error, _Socket, Reason}) ->
     {failed_to_connect, normalise_ip_error(Reason), normalise_ip_error(Reason)};
 normalise_error(timeout) ->
     response_timeout;
+normalise_error(socket_closed_remotely) ->
+    connection_closed;
 normalise_error(Error) ->
     erlang:error({unexpected_httpc_error, Error}).
 

@@ -17,6 +17,11 @@ pub type HttpError {
   FailedToConnect(ip4: ConnectError, ip6: ConnectError)
   /// The response was not received within the configured timeout period.
   ResponseTimeout
+  /// The server closed the connection before sending a response.
+  ///
+  /// With TLS 1.3 this can also happen when the server rejects the client
+  /// certificate, as the rejection is sent after the handshake has completed.
+  ConnectionClosed
 }
 
 pub type ConnectError {
