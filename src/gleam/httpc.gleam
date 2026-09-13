@@ -52,6 +52,9 @@ fn normalise_error(error: Dynamic) -> HttpError
 @external(erlang, "httpc", "ssl_verify_host_options")
 fn ssl_verify_host_options(wildcard: Bool) -> List(ErlSslOption)
 
+@external(erlang, "gleam_httpc_ffi", "https_hostname_check")
+fn https_hostname_check() -> ErlSslOption
+
 type ErlHttpOption {
   Ssl(List(ErlSslOption))
   Autoredirect(Bool)
@@ -81,12 +84,12 @@ type ErlSslOption {
   Certfile(Charlist)
   Keyfile(Charlist)
   Password(Charlist)
-  Cacerts(List(Dynamic))
   Cacertfile(Charlist)
 }
 
 type ErlVerifyOption {
   VerifyNone
+  VerifyPeer
 }
 
 @external(erlang, "httpc", "request")
@@ -193,17 +196,14 @@ pub fn dispatch_bits(
 fn verification_options(tls: TlsVerification) -> List(ErlSslOption) {
   case tls {
     VerifyWithSystemCerts -> ssl_verify_host_options(True)
-    VerifyWithCustomCa(path) -> {
-      let options =
-        ssl_verify_host_options(True)
-        |> list.filter(fn(opt) {
-          case opt {
-            Cacerts(_) -> False
-            _ -> True
-          }
-        })
-      [Cacertfile(charlist.from_string(path)), ..options]
-    }
+    // Built by hand rather than derived from `ssl_verify_host_options`, as
+    // that loads the OS trust store, which may not exist where a custom CA is
+    // the only one available.
+    VerifyWithCustomCa(path) -> [
+      Verify(VerifyPeer),
+      Cacertfile(charlist.from_string(path)),
+      https_hostname_check(),
+    ]
     NoVerification -> [Verify(VerifyNone)]
   }
 }

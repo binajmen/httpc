@@ -1,5 +1,5 @@
 -module(gleam_httpc_ffi).
--export([default_user_agent/0, normalise_error/1]).
+-export([default_user_agent/0, normalise_error/1, https_hostname_check/0]).
 
 normalise_error(Error = {failed_connect, Opts}) ->
     Ipv6 = case lists:keyfind(inet6, 1, Opts) of
@@ -48,3 +48,7 @@ default_user_agent() ->
             undefined -> "0.0.0"
         end,
     {"user-agent", "gleam_httpc/" ++ Version}.
+
+https_hostname_check() ->
+    {customize_hostname_check,
+     [{match_fun, public_key:pkix_verify_hostname_match_fun(https)}]}.
